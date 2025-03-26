@@ -109,7 +109,7 @@ async def get_report(
                 "message": "Отчет в процессе генерации"
             }
         return {
-            "task_id": report.status,
+            "task_id": report.id,
             "status": report.status,
             "results": results_data,
         }
