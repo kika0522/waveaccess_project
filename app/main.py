@@ -6,11 +6,13 @@ from sqlalchemy import select
 from uuid import uuid4
 from app.config import settings
 from app.database import get_db
+from app.files.files_utils import is_valid_zip
 from app.files.github_client import GitHubClient
 from app.reports.models import Report
 from app.files.minio_client import MinioClient
 from app.reports.reports_service import reports_service
 from app.logger_config import setup_logging
+
 
 logger = setup_logging()
 
@@ -21,7 +23,7 @@ app = FastAPI()
 
 @app.post('/upload/',
           summary="Загрузка ZIP-файла",
-          description="Загрузить ZIP-файл для анализа",
+          description="Загрузить ZIP-файл для анализа (Максимальный размер архива: 4 GB)",
           response_description="ID задачи для отслеживания")
 async def upload_file(file: UploadFile, db: AsyncSession = Depends(get_db)):
     """
@@ -33,13 +35,13 @@ async def upload_file(file: UploadFile, db: AsyncSession = Depends(get_db)):
     """
     logger.info(f"РАЗМЕР ФАЙЛА: {file.size}, МАКСИМАЛЬНЫЙ РАЗМЕР ФАЙЛА: {MAX_FILE_SIZE}")
     if file.size > MAX_FILE_SIZE:
-        error_msg = "Максимальный размер ZIP-архива для загрузки: 4GB"
+        error_msg = "Превышен максимально допустимый размер ZIP-архива для загрузки: 4 GB"
         logger.error(error_msg)
         raise HTTPException(status_code=400, detail=error_msg)
 
 
-    if not file.filename.endswith('.zip'):
-        error_msg = "Возможна загрузка только ZIP-архивов"
+    if not await is_valid_zip(file):
+        error_msg = "Файл повреждён или не является ZIP-архивом"
         logger.error(error_msg)
         raise HTTPException(status_code=400, detail=error_msg)
 
