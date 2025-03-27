@@ -1,10 +1,6 @@
-from datetime import datetime
-from typing import Annotated, AsyncGenerator
-from sqlalchemy.dialects.postgresql import UUID
-from uuid import uuid4
-from sqlalchemy import func, JSON
+from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, declared_attr, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, declared_attr
 
 from app.config import settings
 
@@ -22,15 +18,6 @@ async_session_maker = async_sessionmaker(
     expire_on_commit=False,
     class_=AsyncSession,
 )
-
-# настройка аннотаций
-int_pk = Annotated[int, mapped_column(primary_key=True)]
-created_at = Annotated[datetime, mapped_column(server_default=func.now())]
-updated_at = Annotated[datetime, mapped_column(server_default=func.now(), onupdate=datetime.now)]
-str_uniq = Annotated[str, mapped_column(unique=True, nullable=False)]
-str_null_true = Annotated[str, mapped_column(nullable=True)]
-uuid4 = Annotated[UUID(as_uuid=True), mapped_column(primary_key=True, default=uuid4)]
-json = Annotated[JSON, mapped_column(nullable=True)]
 
 class Base(AsyncAttrs, DeclarativeBase):
     __abstract__ = True

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     MINIO_BUCKET_NAME: str = "minio-bucket"
     MINIO_ENDPOINT: str = "minio:9000"
 
+    LOG_LEVEL: str = "INFO"
+
 
 settings = Settings()
 

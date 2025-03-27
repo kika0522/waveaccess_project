@@ -1,8 +1,6 @@
-from sqlalchemy import Column, JSON, String, text
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import JSON, String
+from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
-import uuid
 
 
 class Report(Base):
