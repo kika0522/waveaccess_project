@@ -2,11 +2,12 @@ import asyncio
 import logging
 import json
 from fastapi import FastAPI, HTTPException, UploadFile, Depends, Path
+from fastapi_keycloak import FastAPIKeycloak
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from uuid import uuid4, UUID
+from uuid import uuid4
 from app.config import settings
-from app.database import get_db, async_session_maker
+from app.database import get_db
 from app.files.github_client import GitHubClient
 from app.reports.models import Report
 from app.files.minio_client import MinioClient
@@ -16,14 +17,25 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+keycloak = FastAPIKeycloak(
+    server_url="http://keycloak:8080/",
+    client_id="myclient",
+    client_secret="sIkCWeFx6aK8va01f891jC77WxJtXLZR",
+    admin_client_id="admin-cli",
+    admin_client_secret="C3LwdeYaQdyzzSVbjmwsHdKUMBP58Ukn",
+    realm="myrealm",
+    callback_uri="http://fastapi:8000/callback",
+)
+
 
 @app.post('/upload/')
-async def upload_file(file: UploadFile, db: AsyncSession = Depends(get_db)):
+async def upload_file(file: UploadFile, db: AsyncSession = Depends(get_db), user=Depends(keycloak.get_current_user)):
     if not file.filename.endswith('.zip'):
         raise HTTPException(status_code=400, detail="Возможна загрузка только ZIP-архивов")
 
     try:
         task_id = str(uuid4())
+        user_id = user["sub"]
 
         minio_client = MinioClient(bucket_name=settings.MINIO_BUCKET_NAME)
         await minio_client.create_bucket()
@@ -35,7 +47,7 @@ async def upload_file(file: UploadFile, db: AsyncSession = Depends(get_db)):
             }
         )
 
-        await reports_service.create_new_report(task_id, db)
+        await reports_service.create_new_report(task_id, db, user_id)
 
         asyncio.create_task(reports_service.run_report_generation(task_id))
 
@@ -87,7 +99,8 @@ async def upload_from_github(repo_url: str, branch: str = "main", db:AsyncSessio
 @app.get('/reports/{report_id}')
 async def get_report(
         report_id: str = Path(..., regex=r'^[0-9a-f-]+$', description="UUID отчёта"),
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(keycloak.get_current_user)
 ):
     """
     Возвращает отчёт по его UUID.
@@ -100,18 +113,22 @@ async def get_report(
         if not report:
             raise HTTPException(status_code=404, detail="Отчёт не найден")
 
-        results_data = json.loads(report.results) if report.results else None
+        user_id = user["sub"]
+        # is_admin = keycloak.has_role(user, settings.KEYCLOAK_ADMIN_ROLE)
+
+        if report.user_id != user_id: # and not is_admin:
+            raise HTTPException(status_code=403, detail="У вас нет доступа к этому отчёту")
 
         if report.status == "IN_PROGRESS":
             return {
                 "task_id": report.id,
                 "status": "IN_PROGRESS",
-                "message": "Отчет в процессе генерации"
+                "message": "Отчёт в процессе генерации"
             }
         return {
             "task_id": report.id,
             "status": report.status,
-            "results": results_data,
+            "results": json.loads(report.results) if report.results else None,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при получении отчёта11: {e}")

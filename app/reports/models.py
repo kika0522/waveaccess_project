@@ -9,3 +9,4 @@ class Report(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     status: Mapped[str] = mapped_column(String, nullable=False)
     results: Mapped[JSON] = mapped_column(JSON, nullable=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False)

@@ -73,12 +73,13 @@ class ReportsService:
         async with async_session_maker() as new_db:
             await self.generate_report(task_id, new_db)
 
-    async def create_new_report(self, task_id: str, db: AsyncSession):
+    async def create_new_report(self, task_id: str, db: AsyncSession, user_id: str):
         async with db.begin():
             await db.execute(
                 insert(Report)
-                .values(id=task_id, status="PENDING")
+                .values(id=task_id, user_id=user_id, status="PENDING")
             )
             await db.commit()
+
 # Синглтон экземпляр сервиса
 reports_service = ReportsService()
